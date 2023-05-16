@@ -9,8 +9,8 @@ Las direcciones ip de cada maquina son las siguientes.
 
 ```
 server1     192.168.56.103
-server2     192.168.56.102 / 172.26.0.10
-server3     172.26.0.11
+server2     192.168.56.104 / 172.26.0.4
+server3     172.26.0.5
 ```
 
 Por conveniencia, a cada uno de los servidores se les asignara los siguientes nombres
@@ -211,7 +211,7 @@ systemctl enable openvpn@server.service
 systemctl status openvpn@server.service
 ```
 
-Verifico que el servicio haya arrancado correctamente.
+Verificamos que el servicio haya arrancado correctamente.
 
 ![ScreenShot](/assets/verify-vpn-server.png)
 
@@ -250,3 +250,50 @@ systemctl start openvpn@client1.service
 systemctl enable openvpn@client1.service
 systemctl status openvpn@client1.service
 ```
+
+Verificamos que el servicio haya arrancado correctamente.
+
+![ScreenShot](/assets/verify-vpn-client1.png)
+
+
+Ahora que el servicio OpenVPN inició correctamente tanto en el servidor como en el cliente 1, podemos verificar que tenemos ping a través de las ips 10.8.0.0/24 por el túnel
+
+Ping desde `vpn-server` hasta `vpn-client1` a través del túnel VPN
+
+![ScreenShot](/assets/ping-tunnel-server-to-client1.png)
+
+Ping desde `vpn-client1` hasta `vpn-server` a través del túnel VPN
+
+![ScreenShot](/assets/ping-tunnel-client1-to-server.png)
+
+### Conexion entre red local 
+
+Ahora, para que exista conexión desde `vpn-client1` hacia las máquinas de la red local 172.26.0.0/24 de `vpn-server`, agregamos las siguientes reglas de routing.
+
+```
+## client1 
+ip route add 172.26.0.0/24 via 10.8.0.1 dev tun0
+```
+![ScreenShot](/assets/ip-route-client1.png)
+
+```
+## client2 
+ip route add 10.8.0.0/24 via 172.26.0.4 dev enp0s3
+** Esta regla se debe ejecutar en cada máquina de la red 172.26.0.0/24
+```
+![ScreenShot](/assets/ip-route-client2.png)
+
+Adicional, en `vpn-server` creamos las siguientes reglas de Firewall para permitir el tráfico de OpenVPN
+```
+iptables -A INPUT -i tun+ -j ACCEPT
+iptables -A OUTPUT -o tun+ -j ACCEPT
+iptables -A FORWARDING -i tun+ -j ACCEPT
+```
+
+
+Para verificar el funcionamiento de las reglas de routing, desde `vpn-client1` hacemos ping al la ip local de `vpn-server (172.26.0.4)` y `vpn-client2 (172.26.0.5)`. Debería haber conexión.
+
+![ScreenShot](/assets/ping-local-net-client1-others.png)
+
+
+
